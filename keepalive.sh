@@ -14,6 +14,20 @@ autoUpdateHyIP="$8"
 
 #echo "TELEGRAM_TOKEN=$TELEGRAM_TOKEN, TELEGRAM_USERID=$TELEGRAM_USERID,WXSENDKEY=$WXSENDKEY,BUTTON_URL=$BUTTON_URL,pass=$PASS"
 
+addPm2Cron() {
+  # 设置定时任务的 cron 表达式
+  cron_expr="*/10 * * * * /home/orai/.npm-global/bin/pm2 resurrect >/dev/null 2>&1 && /home/orai/.npm-global/bin/pm2 restart all >/dev/null 2>&1"
+  
+  # 检查 crontab 是否已经存在相同的任务
+  if ! crontab -l | grep -q "$cron_expr"; then
+    # 如果没有相同任务，添加到 crontab
+    (crontab -l 2>/dev/null; echo "$cron_expr") | crontab -
+    echo "Pm2成功添加"
+  else
+    echo "Pm2任务已经存在。"
+  fi
+}
+
 checkHy2Alive() {
   if ps aux | grep serv00sb | grep -v "grep" >/dev/null; then
     return 0
@@ -51,6 +65,7 @@ checkResetCron() {
   if ! crontab -l | grep keepalive; then
     msg="crontab记录被删过,并且已重建。"
     addCron "$tm"
+    addPm2Cron
     sendMsg $msg
   fi
 }
@@ -278,17 +293,6 @@ for obj in "${monitor[@]}"; do
         msg="webssh 重启失败."
       else
         msg="webssh 重启成功."
-      fi
-    fi
-  elif [ "$obj" == "vmess" ]; then
-    if ! checkvmessAlive; then
-      cd ${installpath}/serv00-play/singbox
-      chmod +x ./start.sh && ./start.sh 1 keep
-      sleep 1
-      if ! checkvmessAlive; then
-        msg="vmess 重启失败."
-      else
-        msg="vmess 重启成功."
       fi
     fi
     #hy2和vmess+ws都只需要启动serv00sb，所以可以这么写
